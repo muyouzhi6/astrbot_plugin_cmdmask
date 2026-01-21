@@ -5,14 +5,14 @@
     "default": true
   },
   "reset_rule": {
-    "description": "/reset 指令",
+    "description": "reset 指令",
     "type": "object",
-    "hint": "单独配置 /reset 的伪装与回复",
+    "hint": "单独配置 reset 的伪装与回复（无需填写指令前缀）",
     "items": {
       "alias_text": {
         "description": "伪装指令",
         "type": "string",
-        "hint": "不填保持原样；只想改回复可填 /reset",
+        "hint": "例如填 重置对话，用户发送 .重置对话 即触发 reset（无需填写指令前缀）",
         "default": ""
       },
       "silent": {
@@ -32,14 +32,14 @@
     }
   },
   "new_rule": {
-    "description": "/new 指令",
+    "description": "new 指令",
     "type": "object",
-    "hint": "单独配置 /new 的伪装与回复",
+    "hint": "单独配置 new 的伪装与回复（无需填写指令前缀）",
     "items": {
       "alias_text": {
         "description": "伪装指令",
         "type": "string",
-        "hint": "不填保持原样；只想改回复可填 /new",
+        "hint": "例如填 新对话，用户发送 .新对话 即触发 new（无需填写指令前缀）",
         "default": ""
       },
       "silent": {
@@ -70,13 +70,13 @@
           "command": {
             "description": "真实指令",
             "type": "string",
-            "hint": "例如 /reset、/new",
+            "hint": "例如 reset、new（无需填写指令前缀）",
             "default": ""
           },
           "alias_text": {
             "description": "伪装指令",
             "type": "string",
-            "hint": "用户发送的伪装指令",
+            "hint": "用户发送的伪装指令（无需填写指令前缀）",
             "default": ""
           },
           "silent": {

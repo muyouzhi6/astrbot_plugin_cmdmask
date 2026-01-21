@@ -259,17 +259,23 @@ def _apply_mapping(event: AstrMessageEvent, cfg: AstrBotConfig) -> bool:
     if not event.is_at_or_wake_command:
         return False
 
-    msg = _normalize_text(event.get_message_str())
-    if not msg:
+    raw_msg = _normalize_text(event.get_message_str())
+    if not raw_msg:
         return False
 
     prefixes = _get_wake_prefixes(cfg)
+    msg = _strip_wake_prefix(raw_msg, prefixes)  # 去掉 wake_prefix 后再匹配
 
     for entry in STATE.mappings:
         alias_norm = _strip_wake_prefix(_normalize_text(entry.alias_raw), prefixes)
         if not alias_norm:
             continue
-        if msg == alias_norm or msg.startswith(alias_norm + " "):
+        # 匹配：完全相等，或 alias 后跟任意空白字符
+        if msg == alias_norm or (
+            msg.startswith(alias_norm) 
+            and len(msg) > len(alias_norm) 
+            and msg[len(alias_norm)].isspace()
+        ):
             target_norm = _strip_wake_prefix(
                 _normalize_text(entry.target_raw),
                 prefixes,
