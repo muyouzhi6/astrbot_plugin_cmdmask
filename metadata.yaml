@@ -1,0 +1,6 @@
+name: astrbot_plugin_cmdmask
+display_name: 指令伪装
+desc: 将真实指令映射为伪装指令，并支持静默或自定义回复，用“今天天气真好”代替“/reset”，用“挺好”代替“/reset”的回复，悄悄的重置，避免露馅。
+version: 0.3.0
+author: 木有知
+repo: https://github.com/muyouzhi6/strbot_plugin_cmdmask

@@ -1,0 +1,113 @@
+{
+  "enable": {
+    "description": "启用插件",
+    "type": "bool",
+    "default": true
+  },
+  "reset_rule": {
+    "description": "/reset 指令",
+    "type": "object",
+    "hint": "单独配置 /reset 的伪装与回复",
+    "items": {
+      "alias_text": {
+        "description": "伪装指令",
+        "type": "string",
+        "hint": "不填保持原样；只想改回复可填 /reset",
+        "default": ""
+      },
+      "silent": {
+        "description": "静默回复",
+        "type": "bool",
+        "default": false
+      },
+      "reply_text": {
+        "description": "回复映射",
+        "type": "string",
+        "hint": "不填保持原本输出",
+        "condition": {
+          "silent": false
+        },
+        "default": ""
+      }
+    }
+  },
+  "new_rule": {
+    "description": "/new 指令",
+    "type": "object",
+    "hint": "单独配置 /new 的伪装与回复",
+    "items": {
+      "alias_text": {
+        "description": "伪装指令",
+        "type": "string",
+        "hint": "不填保持原样；只想改回复可填 /new",
+        "default": ""
+      },
+      "silent": {
+        "description": "静默回复",
+        "type": "bool",
+        "default": false
+      },
+      "reply_text": {
+        "description": "回复映射",
+        "type": "string",
+        "hint": "不填保持原本输出",
+        "condition": {
+          "silent": false
+        },
+        "default": ""
+      }
+    }
+  },
+  "custom_rules": {
+    "description": "自定义板块",
+    "type": "template_list",
+    "hint": "点击 + 添加自定义指令映射",
+    "templates": {
+      "custom": {
+        "name": "自定义指令",
+        "hint": "每个板块是一条映射规则",
+        "items": {
+          "command": {
+            "description": "真实指令",
+            "type": "string",
+            "hint": "例如 /reset、/new",
+            "default": ""
+          },
+          "alias_text": {
+            "description": "伪装指令",
+            "type": "string",
+            "hint": "用户发送的伪装指令",
+            "default": ""
+          },
+          "silent": {
+            "description": "静默回复",
+            "type": "bool",
+            "default": false
+          },
+          "reply_text": {
+            "description": "回复映射",
+            "type": "string",
+            "hint": "不填保持原本输出",
+            "condition": {
+              "silent": false
+            },
+            "default": ""
+          }
+        }
+      }
+    },
+    "default": []
+  },
+  "rules_text": {
+    "description": "规则文本（旧版）",
+    "type": "text",
+    "default": "",
+    "invisible": true
+  },
+  "mappings": {
+    "description": "规则列表（旧版）",
+    "type": "list",
+    "default": [],
+    "invisible": true
+  }
+}
