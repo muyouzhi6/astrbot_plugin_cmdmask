@@ -54,10 +54,24 @@ def _get_wake_prefixes(cfg: AstrBotConfig) -> list[str]:
     return [p for p in prefixes if isinstance(p, str) and p]
 
 
-def _strip_wake_prefix(text: str, prefixes: list[str]) -> str:
+def _strip_wake_prefix(text: str, prefixes: list[str], strip_common: bool = False) -> str:
+    """去掉文本开头的 wake_prefix。
+    
+    Args:
+        text: 输入文本
+        prefixes: 用户配置的 wake_prefix 列表
+        strip_common: 是否同时去掉常见命令前缀（仅用于配置归一化）
+    """
+    # 先尝试去掉用户配置的 prefixes
     for prefix in prefixes:
         if prefix and text.startswith(prefix):
             return text[len(prefix) :].strip()
+    # 仅在配置归一化时，再尝试去掉常见的命令前缀
+    if strip_common:
+        common_prefixes = ['/', '.', '!', '！', '。']
+        for prefix in common_prefixes:
+            if text.startswith(prefix):
+                return text[len(prefix) :].strip()
     return text
 
 
@@ -252,22 +266,51 @@ def _build_mappings_from_text(text: str) -> list[MappingEntry]:
 
 
 def _apply_mapping(event: AstrMessageEvent, cfg: AstrBotConfig) -> bool:
+    # 入口日志 - 用 INFO 确保可见
+    logger.info(f"[CmdMask] _apply_mapping enter: enabled={STATE.enabled}, mappings={len(STATE.mappings)}")
+    
     if not STATE.enabled or not STATE.mappings:
+        logger.info(f"[CmdMask] skip: enabled={STATE.enabled}, mappings={len(STATE.mappings)}")
         return False
-    if event.get_extra("_cmdmask_applied", False):
+    
+    # 检查是否已处理 - 使用命名空间 key 避免冲突
+    applied_key = "__astrbot_plugin_cmdmask:applied"
+    if event.get_extra(applied_key, False):
+        logger.info(f"[CmdMask] skip: already applied, extra_keys={list(event._extras.keys()) if hasattr(event, '_extras') else 'unknown'}")
         return True
+    
     if not event.is_at_or_wake_command:
+        logger.info(f"[CmdMask] skip: is_at_or_wake_command=False, message_str={event.get_message_str()!r}")
         return False
 
     raw_msg = _normalize_text(event.get_message_str())
+    logger.info(f"[CmdMask] raw_msg={raw_msg!r}")
     if not raw_msg:
         return False
 
     prefixes = _get_wake_prefixes(cfg)
+    
+    # 检测用户实际使用的前缀
+    # 优先从 message_obj.message_str 获取原始消息（未被处理）
+    original_msg = ""
+    if hasattr(event, 'message_obj') and event.message_obj and hasattr(event.message_obj, 'message_str'):
+        original_msg = event.message_obj.message_str or ""
+    if not original_msg:
+        original_msg = raw_msg
+    
+    used_prefix = ""
+    for prefix in prefixes:
+        if prefix and original_msg.startswith(prefix):
+            used_prefix = prefix
+            break
+    
     msg = _strip_wake_prefix(raw_msg, prefixes)  # 去掉 wake_prefix 后再匹配
+    logger.info(f"[CmdMask] original_msg={original_msg!r}, prefixes={prefixes}, used_prefix={used_prefix!r}, msg={msg!r}")
 
     for entry in STATE.mappings:
-        alias_norm = _strip_wake_prefix(_normalize_text(entry.alias_raw), prefixes)
+        # 配置归一化：去掉常见命令前缀
+        alias_norm = _strip_wake_prefix(_normalize_text(entry.alias_raw), prefixes, strip_common=True)
+        logger.info(f"[CmdMask] checking: alias_raw={entry.alias_raw!r}, alias_norm={alias_norm!r}, msg={msg!r}")
         if not alias_norm:
             continue
         # 匹配：完全相等，或 alias 后跟任意空白字符
@@ -276,24 +319,40 @@ def _apply_mapping(event: AstrMessageEvent, cfg: AstrBotConfig) -> bool:
             and len(msg) > len(alias_norm) 
             and msg[len(alias_norm)].isspace()
         ):
+            # 配置归一化：去掉常见命令前缀
             target_norm = _strip_wake_prefix(
                 _normalize_text(entry.target_raw),
                 prefixes,
+                strip_common=True,
             )
+            logger.info(f"[CmdMask] MATCHED! target_raw={entry.target_raw!r}, target_norm={target_norm!r}")
             if not target_norm:
                 continue
             suffix = msg[len(alias_norm) :].strip()
-            new_msg = target_norm if not suffix else f"{target_norm} {suffix}"
+            # 重写消息：直接使用 target_norm（不加前缀）
+            # 因为 AstrBot 已经在 event.message_str 中去掉了 wake_prefix
+            # CommandFilter 也期望不带前缀的命令名（如 "reset" 而不是 ".reset"）
+            new_msg = target_norm
+            if suffix:
+                new_msg = f"{new_msg} {suffix}"
+            
+            logger.info(f"[CmdMask] rewriting: {event.message_str!r} -> {new_msg!r}")
 
-            event.set_extra("_cmdmask_applied", True)
-            event.set_extra("_cmdmask_reply_mode", entry.reply_mode)
-            event.set_extra("_cmdmask_reply_text", entry.reply_text)
-            event.set_extra("_cmdmask_alias", alias_norm)
-            event.set_extra("_cmdmask_target", target_norm)
-            event.set_extra("_cmdmask_original_message", event.get_message_str())
+            event.set_extra("__astrbot_plugin_cmdmask:applied", True)
+            event.set_extra("__astrbot_plugin_cmdmask:reply_mode", entry.reply_mode)
+            event.set_extra("__astrbot_plugin_cmdmask:reply_text", entry.reply_text)
+            event.set_extra("__astrbot_plugin_cmdmask:alias", alias_norm)
+            event.set_extra("__astrbot_plugin_cmdmask:target", target_norm)
+            event.set_extra("__astrbot_plugin_cmdmask:original_message", event.get_message_str())
 
             if new_msg != event.message_str:
                 event.message_str = new_msg
+                if (
+                    hasattr(event, "message_obj")
+                    and event.message_obj
+                    and hasattr(event.message_obj, "message_str")
+                ):
+                    event.message_obj.message_str = new_msg
 
             event.should_call_llm(True)
             return True
@@ -303,6 +362,7 @@ def _apply_mapping(event: AstrMessageEvent, cfg: AstrBotConfig) -> bool:
 
 class _CommandMaskFilter(CustomFilter):
     def filter(self, event: AstrMessageEvent, cfg: AstrBotConfig) -> bool:
+        logger.debug(f"[CmdMask] filter called, enabled={STATE.enabled}, mappings_count={len(STATE.mappings)}")
         try:
             _apply_mapping(event, cfg)
         except Exception as exc:
@@ -350,17 +410,17 @@ class CmdMask(Star):
         STATE.enabled = enabled
         STATE.mappings = mappings
 
-    @filter.event_message_type(filter.EventMessageType.ALL, priority=100000)
     @filter.custom_filter(_CommandMaskFilter)
+    @filter.event_message_type(filter.EventMessageType.ALL, priority=100000)
     async def _mapping_probe(self, event: AstrMessageEvent):
         return
 
     @filter.on_decorating_result(priority=100000)
     async def _override_reply(self, event: AstrMessageEvent):
-        if not event.get_extra("_cmdmask_applied", False):
+        if not event.get_extra("__astrbot_plugin_cmdmask:applied", False):
             return
 
-        mode = event.get_extra("_cmdmask_reply_mode", "keep")
+        mode = event.get_extra("__astrbot_plugin_cmdmask:reply_mode", "keep")
         if mode == "keep":
             return
 
@@ -369,7 +429,7 @@ class CmdMask(Star):
             return
 
         if mode == "custom":
-            text = event.get_extra("_cmdmask_reply_text", "")
+            text = event.get_extra("__astrbot_plugin_cmdmask:reply_text", "")
             if not text or not str(text).strip():
                 event.set_result(event.make_result())
                 return
