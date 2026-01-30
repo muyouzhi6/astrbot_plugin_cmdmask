@@ -71,9 +71,11 @@ def _get_wake_prefixes(cfg: AstrBotConfig) -> list[str]:
     return [p for p in prefixes if isinstance(p, str) and p]
 
 
-def _strip_wake_prefix(text: str, prefixes: list[str], strip_common: bool = False) -> str:
+def _strip_wake_prefix(
+    text: str, prefixes: list[str], strip_common: bool = False
+) -> str:
     """去掉文本开头的 wake_prefix。
-    
+
     Args:
         text: 输入文本
         prefixes: 用户配置的 wake_prefix 列表
@@ -85,7 +87,7 @@ def _strip_wake_prefix(text: str, prefixes: list[str], strip_common: bool = Fals
             return text[len(prefix) :].strip()
     # 仅在配置归一化时，再尝试去掉常见的命令前缀
     if strip_common:
-        common_prefixes = ['/', '.', '!', '！', '。']
+        common_prefixes = ["/", ".", "!", "！", "。"]
         for prefix in common_prefixes:
             if text.startswith(prefix):
                 return text[len(prefix) :].strip()
@@ -294,32 +296,38 @@ def _apply_mapping(
         return False
 
     prefixes = _get_wake_prefixes(cfg)
-    
+
     # 检测用户实际使用的前缀
     # 优先从 message_obj.message_str 获取原始消息（未被处理）
     original_msg = ""
-    if hasattr(event, 'message_obj') and event.message_obj and hasattr(event.message_obj, 'message_str'):
+    if (
+        hasattr(event, "message_obj")
+        and event.message_obj
+        and hasattr(event.message_obj, "message_str")
+    ):
         original_msg = event.message_obj.message_str or ""
     if not original_msg:
         original_msg = raw_msg
-    
+
     used_prefix = ""
     for prefix in prefixes:
         if prefix and original_msg.startswith(prefix):
             used_prefix = prefix
             break
-    
+
     msg = _strip_wake_prefix(raw_msg, prefixes)  # 去掉 wake_prefix 后再匹配
 
     for entry in mappings:
         # 配置归一化：去掉常见命令前缀
-        alias_norm = _strip_wake_prefix(_normalize_text(entry.alias_raw), prefixes, strip_common=True)
+        alias_norm = _strip_wake_prefix(
+            _normalize_text(entry.alias_raw), prefixes, strip_common=True
+        )
         if not alias_norm:
             continue
         # 匹配：完全相等，或 alias 后跟任意空白字符
         if msg == alias_norm or (
-            msg.startswith(alias_norm) 
-            and len(msg) > len(alias_norm) 
+            msg.startswith(alias_norm)
+            and len(msg) > len(alias_norm)
             and msg[len(alias_norm)].isspace()
         ):
             # 配置归一化：去掉常见命令前缀
@@ -337,7 +345,7 @@ def _apply_mapping(
             new_msg = target_norm
             if suffix:
                 new_msg = f"{new_msg} {suffix}"
-            
+
             logger.info(f"[CmdMask] rewriting: {event.message_str!r} -> {new_msg!r}")
 
             event.set_extra(APPLIED_KEY, True)
@@ -345,7 +353,9 @@ def _apply_mapping(
             event.set_extra("__astrbot_plugin_cmdmask:reply_text", entry.reply_text)
             event.set_extra("__astrbot_plugin_cmdmask:alias", alias_norm)
             event.set_extra("__astrbot_plugin_cmdmask:target", target_norm)
-            event.set_extra("__astrbot_plugin_cmdmask:original_message", event.get_message_str())
+            event.set_extra(
+                "__astrbot_plugin_cmdmask:original_message", event.get_message_str()
+            )
 
             if new_msg != event.message_str:
                 event.message_str = new_msg
