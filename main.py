@@ -432,7 +432,8 @@ class CmdMask(Star):
         self._enabled = enabled
         self._mappings = mappings
 
-    @filter.custom_filter(_CommandMaskFilter)
+    # AstrBot 新版本 custom_filter 期望接收过滤器实例，而不是过滤器类。
+    @filter.custom_filter(_CommandMaskFilter())
     @filter.event_message_type(filter.EventMessageType.ALL, priority=100000)
     async def _mapping_probe(self, event: AstrMessageEvent):
         return
