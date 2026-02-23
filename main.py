@@ -11,7 +11,7 @@ from astrbot.core.config import AstrBotConfig
 from astrbot.core.star.filter.custom_filter import CustomFilter
 from astrbot.core.star.star import star_map
 
-VERSION = "0.3.0"
+VERSION = "0.3.3"
 
 
 @dataclass(frozen=True)
@@ -432,8 +432,8 @@ class CmdMask(Star):
         self._enabled = enabled
         self._mappings = mappings
 
-    # AstrBot 新版本 custom_filter 期望接收过滤器实例，而不是过滤器类。
-    @filter.custom_filter(_CommandMaskFilter())
+    # 兼容 AstrBot v4.17.x：custom_filter 需传入过滤器类，由框架注入 raise_error 后实例化。
+    @filter.custom_filter(_CommandMaskFilter)
     @filter.event_message_type(filter.EventMessageType.ALL, priority=100000)
     async def _mapping_probe(self, event: AstrMessageEvent):
         return
